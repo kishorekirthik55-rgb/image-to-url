@@ -54,7 +54,7 @@
             font-weight: 600;
         }
 
-        input[type="text"], input[type="password"], input[type="file"] {
+        input[type="text"], input[type="file"] {
             width: 100%;
             padding: 8px;
             border: 1px solid var(--border);
@@ -137,11 +137,6 @@
     <h2>Image to URL Converter</h2>
     
     <div class="form-group">
-        <label for="token">GitHub Token (ghp_...):</label>
-        <input type="password" id="token" placeholder="Paste your ghp_ token here">
-    </div>
-
-    <div class="form-group">
         <label for="repo">Storage Repository Path:</label>
         <input type="text" id="repo" placeholder="e.g., kishorekirthik55-rgb/image-storage">
     </div>
@@ -165,7 +160,6 @@
 
 <script>
     const uploadBtn = document.getElementById('uploadBtn');
-    const tokenInput = document.getElementById('token');
     const imageInput = document.getElementById('imageInput');
     const repoInput = document.getElementById('repo');
     const statusMessage = document.getElementById('statusMessage');
@@ -174,27 +168,27 @@
     const copyBtn = document.getElementById('copyBtn');
     const preview = document.getElementById('preview');
 
-    // Auto-load credentials safely from personal browser local cache
-    if(localStorage.getItem('gh_secure_token')) tokenInput.value = localStorage.getItem('gh_secure_token');
-    if(localStorage.getItem('gh_repo')) repoInput.value = localStorage.getItem('gh_repo');
+    // Points directly to your secure Node runtime environment
+    const BACKEND_URL = "http://localhost:3000";
+
+    if(localStorage.getItem('gh_repo')) {
+        repoInput.value = localStorage.getItem('gh_repo');
+    }
 
     uploadBtn.addEventListener('click', async () => {
-        const token = tokenInput.value.trim();
         const repo = repoInput.value.trim();
         const file = imageInput.files[0];
 
-        if (!token || !repo || !file) {
-            alert('Please provide your Token, Repository Path, and choose an image.');
+        if (!repo || !file) {
+            alert('Please provide your Target Repository Path and choose an image.');
             return;
         }
 
-        // Save local configuration for layout memory
-        localStorage.setItem('gh_secure_token', token);
         localStorage.setItem('gh_repo', repo);
 
         uploadBtn.disabled = true;
         statusMessage.style.color = '#e1b441';
-        statusMessage.innerText = 'Uploading to GitHub...';
+        statusMessage.innerText = 'Uploading through secure gateway...';
         resultBox.style.display = 'none';
 
         const reader = new FileReader();
@@ -203,20 +197,15 @@
             const base64Content = reader.result.split(',')[1];
             const fileExtension = file.name.split('.').pop();
             const filename = `img_${Date.now()}.${fileExtension}`;
-            const apiUrl = `https://api.github.com/repos/${repo}/contents/images/${filename}`;
 
             try {
-                const response = await fetch(apiUrl, {
-                    method: 'PUT',
+                // Send information safely to your local Node server backend
+                const response = await fetch(`${BACKEND_URL}/api/upload`, {
+                    method: 'POST',
                     headers: {
-                        'Authorization': `token ${token}`,
-                        'Accept': 'application/vnd.github.v3+json',
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        message: `upload: ${filename}`,
-                        content: base64Content
-                    })
+                    body: JSON.stringify({ repo, base64Content, filename })
                 });
 
                 if (response.ok) {
@@ -228,7 +217,7 @@
                     resultBox.style.display = 'block';
                 } else {
                     const errorPayload = await response.json();
-                    throw new Error(errorPayload.message || 'Submission failed');
+                    throw new Error(errorPayload.message || 'Server error occurred during upload.');
                 }
             } catch (error) {
                 statusMessage.style.color = '#f85149';
