@@ -54,7 +54,7 @@
             font-weight: 600;
         }
 
-        input[type="text"], input[type="file"] {
+        input[type="text"], input[type="password"], input[type="file"] {
             width: 100%;
             padding: 8px;
             border: 1px solid var(--border);
@@ -137,8 +137,13 @@
     <h2>Image to URL Converter</h2>
     
     <div class="form-group">
-        <label for="repo">Storage Repository Path (username/repo-name):</label>
-        <input type="text" id="repo" placeholder="e.g., yourusername/image-storage">
+        <label for="token">GitHub Token (ghp_...):</label>
+        <input type="password" id="token" placeholder="Paste your ghp_ token here">
+    </div>
+
+    <div class="form-group">
+        <label for="repo">Storage Repository Path:</label>
+        <input type="text" id="repo" placeholder="e.g., kishorekirthik55-rgb/image-storage">
     </div>
 
     <div class="form-group">
@@ -159,10 +164,8 @@
 </div>
 
 <script>
-    // HARDCODED PERSONAL ACCESS TOKEN
-    const GITHUB_TOKEN = "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";
-
     const uploadBtn = document.getElementById('uploadBtn');
+    const tokenInput = document.getElementById('token');
     const imageInput = document.getElementById('imageInput');
     const repoInput = document.getElementById('repo');
     const statusMessage = document.getElementById('statusMessage');
@@ -171,21 +174,22 @@
     const copyBtn = document.getElementById('copyBtn');
     const preview = document.getElementById('preview');
 
-    // Remember your repository name automatically after first entry
-    if(localStorage.getItem('gh_repo')) {
-        repoInput.value = localStorage.getItem('gh_repo');
-    }
+    // Auto-load credentials safely from personal browser local cache
+    if(localStorage.getItem('gh_secure_token')) tokenInput.value = localStorage.getItem('gh_secure_token');
+    if(localStorage.getItem('gh_repo')) repoInput.value = localStorage.getItem('gh_repo');
 
     uploadBtn.addEventListener('click', async () => {
+        const token = tokenInput.value.trim();
         const repo = repoInput.value.trim();
         const file = imageInput.files[0];
 
-        if (!repo || !file) {
-            alert('Please specify your repository and select an image file.');
+        if (!token || !repo || !file) {
+            alert('Please provide your Token, Repository Path, and choose an image.');
             return;
         }
 
-        // Save repository name to cache for convenience
+        // Save local configuration for layout memory
+        localStorage.setItem('gh_secure_token', token);
         localStorage.setItem('gh_repo', repo);
 
         uploadBtn.disabled = true;
@@ -193,59 +197,48 @@
         statusMessage.innerText = 'Uploading to GitHub...';
         resultBox.style.display = 'none';
 
-        // 1. Process image file into Base64 format
         const reader = new FileReader();
         reader.readAsDataURL(file);
         reader.onload = async () => {
             const base64Content = reader.result.split(',')[1];
-            
-            // Format dynamic file configurations
             const fileExtension = file.name.split('.').pop();
             const filename = `img_${Date.now()}.${fileExtension}`;
-            
-            // GitHub REST API target path
             const apiUrl = `https://api.github.com/repos/${repo}/contents/images/${filename}`;
 
             try {
-                // 2. Submit Authorization payload to GitHub
                 const response = await fetch(apiUrl, {
                     method: 'PUT',
                     headers: {
-                        'Authorization': `token ${GITHUB_TOKEN}`,
+                        'Authorization': `token ${token}`,
                         'Accept': 'application/vnd.github.v3+json',
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        message: `cdn commit: ${filename}`,
+                        message: `upload: ${filename}`,
                         content: base64Content
                     })
                 });
 
                 if (response.ok) {
-                    // 3. Fast-delivery CDN layout link (Bypasses local caching limits)
                     const finalCdnUrl = `https://cdn.jsdelivr.net/gh/${repo}@main/images/${filename}`;
-                    
                     statusMessage.style.color = '#2da44e';
                     statusMessage.innerText = 'Upload Complete!';
-                    
                     urlDisplay.innerText = finalCdnUrl;
                     preview.src = finalCdnUrl;
                     resultBox.style.display = 'block';
                 } else {
                     const errorPayload = await response.json();
-                    throw new Error(errorPayload.message || 'Repository submission failed');
+                    throw new Error(errorPayload.message || 'Submission failed');
                 }
             } catch (error) {
                 statusMessage.style.color = '#f85149';
                 statusMessage.innerText = `Error: ${error.message}`;
-                console.error(error);
             } finally {
                 uploadBtn.disabled = false;
             }
         };
     });
 
-    // Copy string link shortcut
     copyBtn.addEventListener('click', () => {
         navigator.clipboard.writeText(urlDisplay.innerText);
         const activeText = copyBtn.innerText;
