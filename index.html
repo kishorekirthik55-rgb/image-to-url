@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image Upload To Link</title>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial,sans-serif;
+}
+
+body{
+    background:linear-gradient(135deg,#667eea,#764ba2);
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:20px;
+}
+
+.container{
+    width:100%;
+    max-width:600px;
+    background:#fff;
+    padding:30px;
+    border-radius:20px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.2);
+    text-align:center;
+}
+
+h1{
+    margin-bottom:20px;
+    color:#333;
+}
+
+.upload-box{
+    border:2px dashed #4f46e5;
+    padding:30px;
+    border-radius:15px;
+    margin-bottom:20px;
+    cursor:pointer;
+}
+
+.upload-box:hover{
+    background:#f5f5ff;
+}
+
+input[type=file]{
+    display:none;
+}
+
+#preview{
+    max-width:100%;
+    max-height:300px;
+    margin-top:15px;
+    border-radius:10px;
+    display:none;
+}
+
+button{
+    background:#4f46e5;
+    color:white;
+    border:none;
+    padding:12px 25px;
+    border-radius:10px;
+    cursor:pointer;
+    font-size:16px;
+}
+
+button:hover{
+    opacity:0.9;
+}
+
+#status{
+    margin-top:15px;
+    font-weight:bold;
+}
+
+.result{
+    margin-top:20px;
+}
+
+.link-box{
+    background:#f1f5f9;
+    padding:12px;
+    border-radius:10px;
+    word-break:break-all;
+    margin:15px 0;
+}
+
+.copy-btn{
+    background:#16a34a;
+}
+
+.copy-btn:hover{
+    background:#15803d;
+}
+</style>
+
+</head>
+<body>
+
+<div class="container">
+
+<h1>Image To Link Converter</h1>
+
+<label class="upload-box">
+    Click Here To Select Image
+    <input type="file" id="fileInput" accept="image/*">
+</label>
+
+<img id="preview">
+
+<br><br>
+
+<button onclick="uploadImage()">Upload Image</button>
+
+<div id="status"></div>
+
+<div id="result"></div>
+
+</div>
+
+<script>
+
+// CHANGE THESE
+const CLOUD_NAME = "dzarw1htx";
+const UPLOAD_PRESET = "imageupload";
+
+const fileInput = document.getElementById("fileInput");
+const preview = document.getElementById("preview");
+
+fileInput.addEventListener("change", function(){
+
+    const file = this.files[0];
+
+    if(!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = function(e){
+        preview.src = e.target.result;
+        preview.style.display = "block";
+    }
+
+    reader.readAsDataURL(file);
+});
+
+async function uploadImage(){
+
+    const file = fileInput.files[0];
+
+    if(!file){
+        alert("Please select an image");
+        return;
+    }
+
+    document.getElementById("status").innerHTML = "Uploading...";
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", UPLOAD_PRESET);
+
+    try{
+
+        const response = await fetch(
+            `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`,
+            {
+                method:"POST",
+                body:formData
+            }
+        );
+
+        const data = await response.json();
+
+        document.getElementById("status").innerHTML =
+            "Upload Successful ✅";
+
+        document.getElementById("result").innerHTML = `
+            <div class="result">
+                <h3>Your Image Link</h3>
+
+                <div class="link-box" id="imageLink">
+                    ${data.secure_url}
+                </div>
+
+                <button class="copy-btn"
+                onclick="copyLink('${data.secure_url}')">
+                    Copy Link
+                </button>
+
+                <br><br>
+
+                <a href="${data.secure_url}"
+                   target="_blank">
+                   Open Image
+                </a>
+            </div>
+        `;
+
+    }catch(error){
+
+        console.error(error);
+
+        document.getElementById("status").innerHTML =
+            "Upload Failed ❌";
+    }
+}
+
+function copyLink(link){
+
+    navigator.clipboard.writeText(link);
+
+    alert("Link Copied Successfully");
+}
+
+</script>
+
+</body>
+</html>
